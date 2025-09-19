@@ -1,0 +1,195 @@
+Build a high-converting landing page for Freakfest 2025. Mobile first. Fast. Accessible. SEO ready.
+
+Primary goal
+Sell tickets.
+
+Secondary goals
+Collect emails.
+Attract sponsors.
+
+Event details
+Dates. October 16 to 19, 2025.
+Venue. Cartersville Country Winery, 571 Lamar Hwy, Timmonsville, SC.
+Ticket URL. https://freakfest.bigcartel.com/product/freak-fest-2025-ticket
+
+Official site. freakfest2025.com
+Support email. support@freakfest2025.com
+
+Social. Instagram @forthefreaksbooking
+
+Sources
+Pull branding, colors, logos, photos, and video from this Google Drive folder and all subfolders:
+https://drive.google.com/drive/folders/1jhp9S0EMplf51VkDTQbx3T-fxIR_A5vY
+
+Use the Sponsor Deck file named “Sponsor Deck Freakfest.psd.”
+Pull any missing event facts from the ticket page.
+
+Brand and style
+Extract palette and typography from Drive or the PSD.
+If brand files are missing, apply near-black background, electric purple accents, cyan secondary.
+Bold display font for headings. Clean sans serif for body.
+High contrast. Big headlines. Clear buttons. Strong spacing.
+
+Information architecture
+Sticky header with anchors.
+Sections in this order:
+
+Hero
+
+Urgency
+
+Lineup
+
+Schedule
+
+Tickets
+
+Venue and Travel
+
+Sponsors
+
+Gallery
+
+FAQ
+
+Email Capture
+
+Footer
+
+Section requirements
+
+Hero
+Title. Freakfest 2025.
+Subtitle. October 16 to 19 in Timmonsville, SC at Cartersville Country Winery. High-impact sets. Production that hits.
+Primary CTA. Buy Tickets. Open the BigCartel URL in a new tab.
+Secondary CTA. Become a Sponsor. Jump to Sponsors.
+Value line. One night. High energy. Zero filler.
+Background. Best hero image from Drive. Gradient fallback.
+
+Urgency
+Ticket status banner with a percentSold variable.
+Copy options:
+Inventory moving fast.
+Limited passes left.
+Secure your spot now.
+
+Lineup
+Grid layout. Headliners larger.
+Artist card. Name, genre, short blurb, socials, image.
+Data lives in /data/lineup.json.
+Seed the JSON from this sheet:
+https://docs.google.com/spreadsheets/d/1olXuQXZWpPCC87JLfS3P94gvZ5YRh2YoOJuSYa1RaYQ/edit?gid=1711871810
+
+Provide a script to export a CSV and update lineup.json during build.
+
+Schedule
+Simple timeline. Time on the left. Act or activity on the right.
+Note. Subject to change.
+Placeholder gates and music times per day. Easy to edit in /data/schedule.json.
+
+Tickets
+Three cards. General Admission. VIP. Group.
+Pull price from the ticket page.
+Each card lists inclusions and a refund note.
+CTA. Buy Tickets. Link to the BigCartel URL with UTM
+utm_source=site utm_medium=cta utm_campaign=freakfest2025.
+
+Venue and Travel
+Map embed with the venue address.
+Directions link.
+Parking, rideshare, and transit tips from a config file.
+Age policy and entry rules shown here.
+
+Sponsors
+Keep tiers and benefits the same as the deck.
+Logo grid from Drive. Vector first. PNG fallback.
+CTA. Request Sponsorship Info. Opens a form modal.
+
+Gallery
+Masonry grid with photos from Drive.
+Lightbox viewer.
+
+FAQ
+Accordion with 8 to 12 questions and short answers.
+Standard set:
+What time do doors open
+What items are prohibited
+Is re-entry allowed
+What is the refund policy
+Will there be food and drinks
+Is there ADA access
+What is the rain plan
+Where do I get support
+
+Policies, standard
+Age. All ages. 21+ wristband for alcohol. Valid ID required.
+Re-entry. No re-entry.
+Refunds. All sales final. Rain or shine. If event is canceled, refund the ticket price.
+Prohibited items. Weapons. Illegal substances. Outside alcohol. Glass. Fireworks. Drones. Laser pointers. Professional audio or video gear without approval. Large umbrellas. Hard coolers. Pets other than service animals.
+ADA. Accessible entry and viewing where feasible. Contact support for specific accommodations. Service animals allowed.
+
+Email Capture
+Headline. Get updates before anyone else.
+Email field with validation. Button text. Subscribe.
+POST to a placeholder endpoint. Show success and error states.
+
+Footer
+Logo. Copyright. Social links. Contact email. Terms. Privacy.
+
+Technical requirements
+
+Stack
+Next.js App Router.
+TypeScript.
+Tailwind CSS.
+shadcn/ui.
+
+Performance
+Image optimization. Lazy load. Preload hero font. Minify and tree shake. Light animations only.
+
+Accessibility
+WCAG 2.1 AA targets. Keyboard navigation. Visible focus. Alt text on images. Strong contrast.
+
+SEO
+Set title, meta description, canonical to https://freakfest2025.com
+
+Open Graph and Twitter Cards with hero image.
+JSON-LD Event. Name, startDate, endDate, location, offers, organizer, sameAs. Populate from config and the ticket page.
+
+Analytics
+GA4 placeholder.
+Track events. Buy Tickets. Sponsor form open. Subscribe.
+
+Data and config
+Store lineup, schedule, FAQs, and sponsor logos in /data JSON files.
+Keep links, addresses, times, and socials in /config/site.ts.
+Domain and email in config. freakfest2025.com and support@freakfest2025.com
+
+Forms
+Email subscribe posts to /api/subscribe.
+Sponsor form fields. Name, Company, Email, Phone, Budget range, Notes. POST to /api/sponsor.
+Show toast notifications for success and errors.
+
+Asset handling
+Scan Drive subfolders. Prefer brand, logos, photos, video, press.
+Pick highest resolution assets. Export responsive sizes.
+Cache web assets in /public/images with clear names.
+Never ship raw PSD.
+
+Routing
+Anchors for in-page nav.
+Dedicated /privacy and /terms with placeholder copy.
+
+Quality bar
+No lorem ipsum.
+Readable on small screens.
+Lighthouse 90+ on Performance, Accessibility, Best Practices, and SEO on a standard build.
+
+Link for all purchase CTAs
+https://freakfest.bigcartel.com/product/freak-fest-2025-ticket
+
+Deliverables
+A working Next.js project.
+All sections wired to data.
+Sample JSON files with placeholders.
+README with steps to swap images, refresh lineup from the sheet, and set env vars for forms and analytics.

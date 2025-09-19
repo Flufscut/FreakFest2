@@ -1,0 +1,4 @@
+client/public/assets/flyers/*.png filter=lfs diff=lfs merge=lfs -text
+client/public/assets/venue/*.mp4 filter=lfs diff=lfs merge=lfs -text
+client/public/assets/gallery/freakfest/*.jpg filter=lfs diff=lfs merge=lfs -text
+client/public/assets/gallery/freakfest/*.JPG filter=lfs diff=lfs merge=lfs -text
