@@ -12,9 +12,13 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Create release v0.1 and upload archives
+      - name: Upload archives as release assets
+        id: upload
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v0.1
+          name: v0.1
+          body_path: RELEASE_NOTES.md
           files: |
             client/public/assets/.local/uploads/flyers.tar.gz
             client/public/assets/.local/uploads/gallery-freakfest.tar.gz
