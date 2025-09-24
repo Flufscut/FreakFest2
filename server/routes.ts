@@ -153,12 +153,6 @@ async function fetchArtistsFromSheet(): Promise<any[]> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
-
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
-
   // GET /api/artists - returns normalized artists from Google Sheet
   app.get("/api/artists", async (req: Request, res: Response) => {
     try {
@@ -175,8 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/instagram-image?u=<encoded-image-url>
-  // Proxies remote Instagram CDN images to avoid referrer/cookie issues and enable caching
+  // Proxy instagram images
   app.get("/api/instagram-image", async (req: Request, res: Response) => {
     try {
       const rawUrl = String(req.query.u || "");
@@ -186,7 +179,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetUrl = decodeURIComponent(rawUrl);
       const upstream = await fetch(targetUrl, {
         headers: {
-          // Pretend to be a real browser; some CDNs gate by UA
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
@@ -196,7 +188,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!upstream.ok) {
         return res.status(502).json({ message: `Upstream error: ${upstream.status}` });
       }
-      // Forward content-type and cache headers
       const contentType = upstream.headers.get("content-type") || "image/jpeg";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, immutable");
@@ -207,8 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/instagram-avatar?handle=<username>
-  // Falls back to unavatar to retrieve public IG profile avatars, then caches
+  // Instagram avatar
   app.get("/api/instagram-avatar", async (req: Request, res: Response) => {
     try {
       const handle = String(req.query.handle || "").replace(/^@/, "");
@@ -234,13 +224,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/gallery-thumb?f=<filename>&w=<width>&q=<quality>&fmt=<webp|avif|jpeg>&square=1
-  // Generates a downscaled, compressed thumbnail from local gallery assets. If square=1, center-crops to a square.
+  // Gallery manifest (falls back to empty)
+  app.get("/api/gallery-manifest", async (_req: Request, res: Response) => {
+    try {
+      const galleryDir = path.resolve(process.cwd(), "dist/public/assets/gallery/freakfest");
+      const entries = await fs.readdir(galleryDir);
+      const images = entries.filter((e) => /\.(jpe?g|png|webp|avif)$/i.test(e)).sort();
+      return res.json({ images });
+    } catch {
+      return res.json({ images: [] });
+    }
+  });
+
+  // Gallery thumbnail generator
   app.get("/api/gallery-thumb", async (req: Request, res: Response) => {
     try {
       const rawFile = String(req.query.f || "");
       if (!rawFile) return res.status(400).json({ message: "Missing 'f' (filename)" });
-      // Allow only safe filenames (no path separators)
       if (!/^[A-Za-z0-9._-]+$/.test(rawFile)) {
         return res.status(400).json({ message: "Invalid filename" });
       }
@@ -248,7 +248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const width = Math.min(Math.max(parseInt(String(req.query.w || "480"), 10) || 480, 64), 2048);
       const quality = Math.min(Math.max(parseInt(String(req.query.q || "60"), 10) || 60, 30), 95);
 
-      // Determine format
       const fmtParam = String(req.query.fmt || "auto").toLowerCase();
       const accept = String(req.headers["accept"] || "");
       const prefersAvif = /image\/(avif|\*)/i.test(accept);
@@ -258,19 +257,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       else if (fmtParam === "jpeg") fmt = "jpeg";
       else if (fmtParam === "webp" || (fmtParam === "auto" && prefersWebp)) fmt = "webp";
 
-      const BASE_DIR = path.resolve(process.cwd(), "client/public/assets/gallery/freakfest");
+      // Use built assets in production, dev path otherwise
+      const baseDev = path.resolve(process.cwd(), "client/public/assets/gallery/freakfest");
+      const baseProd = path.resolve(process.cwd(), "dist/public/assets/gallery/freakfest");
+      const BASE_DIR = process.env.NODE_ENV === 'production' ? baseProd : baseDev;
+
       const fullPath = path.resolve(BASE_DIR, rawFile);
       if (!fullPath.startsWith(BASE_DIR)) {
         return res.status(400).json({ message: "Invalid path" });
       }
 
-      // Ensure file exists
       await fs.access(fullPath);
 
       const square = String(req.query.square || "0") === "1";
       let pipeline = sharp(fullPath);
       if (square) {
-        // First, ensure we extract a centered square, then resize to width
         const meta = await pipeline.metadata();
         const side = Math.min(meta.width || width, meta.height || width);
         const left = Math.max(0, Math.floor(((meta.width || side) - side) / 2));
@@ -301,6 +302,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }
