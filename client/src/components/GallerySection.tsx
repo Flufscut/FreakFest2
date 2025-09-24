@@ -15,7 +15,7 @@ export default function GallerySection() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/assets/gallery/freakfest/manifest.json', { cache: 'no-cache' })
+        const res = await fetch('/api/gallery-manifest', { cache: 'no-cache' })
         if (res.ok) {
           const data: Manifest = await res.json()
           setImages(data.images)
