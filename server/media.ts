@@ -43,6 +43,7 @@ async function generateGalleryManifest(galleryDir: string): Promise<void> {
     const entries = await fsp.readdir(galleryDir);
     const images = entries
       .filter((e) => /\.(jpe?g|png|webp|avif)$/i.test(e))
+      .filter((e) => !e.startsWith("._")) // Filter out macOS resource fork files
       .sort();
     const manifest = { images };
     await fsp.writeFile(path.join(galleryDir, "manifest.json"), JSON.stringify(manifest, null, 2));
@@ -57,6 +58,7 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
     const entries = await fsp.readdir(flyersDir);
     const files = entries
       .filter((e) => /\.(jpe?g|png|webp|avif)$/i.test(e))
+      .filter((e) => !e.startsWith("._")) // Filter out macOS resource fork files
       .sort();
     const manifest = { files };
     await fsp.writeFile(path.join(flyersDir, "manifest.json"), JSON.stringify(manifest, null, 2));
