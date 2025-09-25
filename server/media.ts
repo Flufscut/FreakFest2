@@ -27,7 +27,15 @@ async function downloadAndExtract(url: string, destDir: string): Promise<void> {
   await fsp.mkdir(destDir, { recursive: true });
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
-  await pipeline(res.body as any, tar.x({ C: destDir }));
+  
+  // Extract with strip option to remove the first directory component
+  // This handles archives that have a single top-level directory
+  await pipeline(res.body as any, tar.x({ 
+    C: destDir,
+    strip: 1  // Remove the first directory component (e.g., "flyers/")
+  }));
+  
+  log(`files extracted to ${destDir}`, "media");
 }
 
 async function generateGalleryManifest(galleryDir: string): Promise<void> {
