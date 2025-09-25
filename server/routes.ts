@@ -115,6 +115,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) { return res.status(500).json({ message: err?.message ?? "Failed to fetch avatar" }); }
   });
 
+  // Special handler for flyer files with colons in filenames
+  app.get("/assets/flyers/:filename", async (req: Request, res: Response) => {
+    try {
+      const filename = decodeURIComponent(req.params.filename);
+      const baseDev = path.resolve(process.cwd(), "client/public/assets/flyers");
+      const baseProd = path.resolve(process.cwd(), "dist/public/assets/flyers");
+      const baseDir = process.env.NODE_ENV === 'production' ? baseProd : baseDev;
+      const fullPath = path.resolve(baseDir, filename);
+      
+      // Security check
+      if (!fullPath.startsWith(baseDir)) {
+        return res.status(400).json({ message: "Invalid path" });
+      }
+      
+      // Check if file exists
+      await fs.access(fullPath);
+      
+      // Serve the file
+      const contentType = filename.endsWith('.png') ? 'image/png' : 
+                         filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                         'application/octet-stream';
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      
+      const fileBuffer = await fs.readFile(fullPath);
+      return res.end(fileBuffer);
+    } catch (err: any) {
+      console.error(`Failed to serve flyer ${req.params.filename}:`, err);
+      return res.status(404).json({ message: "File not found" });
+    }
+  });
+
   // Gallery manifest for both dev and prod
   app.get("/api/gallery-manifest", async (_req: Request, res: Response) => {
     try {
