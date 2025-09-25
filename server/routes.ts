@@ -109,17 +109,24 @@ async function fetchArtists(): Promise<any[]> {
 
     const artists = records.map(r => {
       const name = pick(r, ['artist name', 'name', 'artist']);
-      const day = pick(r, ['day', 'date']);
-      const stage = pick(r, ['stage']);
-      const time = pick(r, ['time']);
-      const instagram = pick(r, ['instagram', 'ig', 'handle'], getInstagramHandle(name));
+      const instagramHandle = pick(r, ['instagram', 'ig', 'handle'], getInstagramHandle(name));
+      const igLink = pick(r, ['ig link', 'iglink', 'instagram link'], '');
+      
+      // Use the IG Link if available, otherwise construct from handle
+      let instagramUrl = '';
+      if (igLink && igLink.startsWith('http')) {
+        instagramUrl = igLink;
+      } else if (instagramHandle) {
+        const cleanHandle = instagramHandle.replace(/^@/, '');
+        instagramUrl = `https://instagram.com/${cleanHandle}`;
+      }
+      
       return {
+        id: name.replace(/\s+/g, '-').toLowerCase(),
         name,
-        day,
-        stage,
-        time,
-        instagram,
-        avatar: getUnavatarUrl(name),
+        instagramHandle,
+        instagramUrl,
+        profileImageUrl: getUnavatarUrl(name),
       };
     }).filter(a => a.name);
 
