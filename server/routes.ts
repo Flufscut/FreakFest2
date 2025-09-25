@@ -279,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Gallery thumbnail endpoint
   app.get('/api/gallery-thumb', async (req: Request, res: Response) => {
     try {
-      const { f: filename, w = '400', q = '85', square = '0', fmt = 'jpeg' } = req.query;
+      const { f: filename, w = '300', q = '75', square = '0', fmt = 'jpeg' } = req.query;
       
       // Validate filename
       if (!filename || typeof filename !== 'string' || !/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
