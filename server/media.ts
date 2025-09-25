@@ -31,9 +31,15 @@ async function dirHasRealFiles(dir: string): Promise<boolean> {
   }
 }
 
-async function downloadAndExtract(url: string, destDir: string): Promise<void> {
+async function downloadAndExtract(url: string, destDir: string, headers?: HeadersInit): Promise<void> {
   await fsp.mkdir(destDir, { recursive: true });
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: headers || {
+      'Accept': 'application/octet-stream',
+      'User-Agent': 'FreakFest2/1.0'
+    },
+    redirect: 'follow'
+  });
   if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
   await pipeline(res.body as any, tar.x({ C: destDir }));
 }
@@ -59,7 +65,31 @@ async function generateManifest(dir: string, type: "gallery" | "flyers"): Promis
 export async function ensureMediaAssets(): Promise<void> {
   const assetsRoot = path.resolve(import.meta.dirname, "public", "assets");
   const tag = process.env.MEDIA_RELEASE_TAG || "v0.1";
-  const base = `https://github.com/Flufscut/FreakFest2/releases/download/${encodeURIComponent(tag)}`;
+  const githubToken = process.env.GITHUB_TOKEN;
+  const repoOwner = "Flufscut";
+  const repoName = "FreakFest2";
+  
+  // Get release info from GitHub API
+  let releaseData: any;
+  try {
+    const headers: HeadersInit = {
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'FreakFest2/1.0'
+    };
+    if (githubToken) {
+      headers['Authorization'] = `token ${githubToken}`;
+    }
+    
+    const releaseRes = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/releases/tags/${tag}`, { headers });
+    if (!releaseRes.ok) {
+      throw new Error(`Failed to fetch release info: ${releaseRes.status}`);
+    }
+    releaseData = await releaseRes.json();
+  } catch (e: any) {
+    log(`failed to fetch release info: ${e?.message ?? e}`, "media");
+    return;
+  }
+  
   const targets = [
     { dir: path.join(assetsRoot, "flyers"), file: "flyers.tar.gz" },
     { dir: path.join(assetsRoot, "gallery", "freakfest"), file: "gallery-freakfest.tar.gz" },
@@ -70,8 +100,23 @@ export async function ensureMediaAssets(): Promise<void> {
     const has = await dirHasRealFiles(t.dir);
     if (!has) {
       try {
+        const asset = releaseData.assets.find((a: any) => a.name === t.file);
+        if (!asset) {
+          throw new Error(`Asset ${t.file} not found in release`);
+        }
+        
         log(`downloading ${t.file}...`, "media");
-        await downloadAndExtract(`${base}/${t.file}`, t.dir);
+        
+        // Use the API URL for private repo access
+        const downloadHeaders: HeadersInit = {
+          'Accept': 'application/octet-stream',
+          'User-Agent': 'FreakFest2/1.0'
+        };
+        if (githubToken) {
+          downloadHeaders['Authorization'] = `token ${githubToken}`;
+        }
+        
+        await downloadAndExtract(asset.url, t.dir, downloadHeaders);
         log(`extracted ${t.file}`, "media");
       } catch (e: any) {
         log(`failed to fetch ${t.file}: ${e?.message ?? e}`, "media");
