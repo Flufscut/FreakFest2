@@ -94,7 +94,7 @@ export default function LineupPage() {
     return withDates
   }, [files, dateMap])
 
-  const imageUrl = (file: string) => `/api/file?path=${encodeURIComponent('/assets/flyers/' + file)}`
+  const imageUrl = (file: string) => `/assets/flyers/${encodeURIComponent(file)}`
 
   return (
     <div className="min-h-screen bg-background text-foreground">
