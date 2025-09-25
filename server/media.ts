@@ -70,7 +70,7 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
 
 export async function ensureMediaAssets(): Promise<void> {
   const assetsRoot = path.resolve(import.meta.dirname, "public", "assets");
-  const tag = process.env.MEDIA_RELEASE_TAG || "v1.0.0";
+  const tag = process.env.MEDIA_RELEASE_TAG || "v1.0.1";
   const base = `https://github.com/Flufscut/FreakFest2/releases/download/${encodeURIComponent(tag)}`;
   const targets = [
     { dir: path.join(assetsRoot, "flyers"), file: "flyers.tar.gz" },
