@@ -80,7 +80,12 @@ async function fetchArtists(): Promise<any[]> {
   
   try {
     const sheetId = process.env.GOOGLE_SHEET_ID || '1olXuQXZWpPCC87JLfS3P94gvZ5YRh2YoOJuSYa1RaYQ';
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+    const sheetName = process.env.GOOGLE_SHEET_SHEETNAME || 'Master Sheet';
+    const sheetGid = process.env.GOOGLE_SHEET_GID;
+    // Prefer explicit gid if provided, else fetch by sheet name via gviz CSV
+    const url = sheetGid
+      ? `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(sheetGid)}`
+      : `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 
     const response = await fetch(url);
     if (!response.ok) {
