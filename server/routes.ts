@@ -79,7 +79,7 @@ async function fetchArtists(): Promise<any[]> {
   }
   
   try {
-    const sheetId = '1BVmOJzZl-wQGVEO9OwJAhX4_gXiWmVfHIZKZZPuWQkE';
+    const sheetId = process.env.GOOGLE_SHEET_ID || '1olXuQXZWpPCC87JLfS3P94gvZ5YRh2YoOJuSYa1RaYQ';
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
 
     const response = await fetch(url);
