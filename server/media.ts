@@ -27,7 +27,32 @@ async function downloadAndExtract(url: string, destDir: string): Promise<void> {
   await fsp.mkdir(destDir, { recursive: true });
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
-  await pipeline(res.body as any, tar.x({ C: destDir }));
+  
+  // Extract to a temporary directory first to handle nested structure
+  const tempDir = path.join(destDir, '..', 'temp_extract');
+  await fsp.mkdir(tempDir, { recursive: true });
+  
+  await pipeline(res.body as any, tar.x({ C: tempDir }));
+  
+  // Move files from nested structure to the target directory
+  const extractedDirs = await fsp.readdir(tempDir);
+  for (const dir of extractedDirs) {
+    const srcPath = path.join(tempDir, dir);
+    const stat = await fsp.stat(srcPath);
+    
+    if (stat.isDirectory()) {
+      // Move contents of the subdirectory to the target directory
+      const files = await fsp.readdir(srcPath);
+      for (const file of files) {
+        const srcFile = path.join(srcPath, file);
+        const destFile = path.join(destDir, file);
+        await fsp.rename(srcFile, destFile);
+      }
+    }
+  }
+  
+  // Clean up temp directory
+  await fsp.rm(tempDir, { recursive: true, force: true });
 }
 
 async function generateGalleryManifest(galleryDir: string): Promise<void> {
