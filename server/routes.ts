@@ -12,6 +12,40 @@ const fsp = fs;
 type CachedArtists = { fetchedAt: number; data: any[] } | null;
 let artistsCache: CachedArtists = null;
 
+// Schedule cache clear at midnight EST daily
+function scheduleMidnightCacheClear() {
+  const now = new Date();
+  const midnight = new Date();
+  
+  // Set to midnight EST (UTC-5) or EDT (UTC-4) depending on daylight saving
+  const estOffset = -5; // EST is UTC-5
+  const edtOffset = -4; // EDT is UTC-4
+  
+  // Simple daylight saving check (March-November is generally EDT)
+  const isDST = now.getMonth() >= 2 && now.getMonth() <= 10;
+  const targetOffset = isDST ? edtOffset : estOffset;
+  
+  // Calculate next midnight EST/EDT
+  midnight.setUTCHours(24 + targetOffset, 0, 0, 0); // Next midnight in EST/EDT
+  if (midnight <= now) {
+    midnight.setUTCDate(midnight.getUTCDate() + 1); // If already past, set for tomorrow
+  }
+  
+  const msUntilMidnight = midnight.getTime() - now.getTime();
+  
+  setTimeout(() => {
+    log('Clearing artists cache at midnight EST', 'cache');
+    artistsCache = null;
+    // Schedule the next clear (24 hours later)
+    scheduleMidnightCacheClear();
+  }, msUntilMidnight);
+  
+  log(`Next artists cache clear scheduled for ${midnight.toISOString()} (${Math.round(msUntilMidnight / 1000 / 60)} minutes)`, 'cache');
+}
+
+// Start the midnight cache clearing schedule
+scheduleMidnightCacheClear();
+
 function parseCSVLine(line: string): string[] {
   const values: string[] = [];
   let current = '';
