@@ -175,6 +175,6 @@ export async function ensureMediaAssets(): Promise<void> {
     }
   }
 
-  await generateGalleryManifest(path.join(assetsRoot, "assets", "gallery", "freakfest"));
-  await generateFlyersManifest(path.join(assetsRoot, "assets", "flyers"));
+  await generateGalleryManifest(path.join(assetsRoot, "gallery", "freakfest"));
+  await generateFlyersManifest(path.join(assetsRoot, "flyers"));
 }
