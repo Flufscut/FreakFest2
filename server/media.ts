@@ -98,11 +98,8 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
       .sort();
     
     // Prefer the eight numbered flyers only: "1 - ..." through "8 - ..."
-    const numbered = files.filter((f) => /^\s*[1-8]\s*-\s*/.test(f));
-
-    // If the archive contains more files, keep only the eight we care about
-    // and sort by the leading number
-    let chosen: string[] = numbered
+    const numbered = files
+      .filter((f) => /^\s*[1-8]\s*-\s*/.test(f))
       .slice()
       .sort((a, b) => {
         const na = parseInt(a.match(/^(\s*([1-8]))\s*-/)?.[2] || '99', 10);
@@ -110,10 +107,21 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
         return na - nb || a.localeCompare(b);
       });
 
-    // Fallback: if we didn't find the numbered set (unexpected),
-    // keep previous behavior but deduplicate to avoid explosion
+    let chosen: string[] = numbered.slice(0, 8);
+
+    // If we have 7 numbered flyers (some archives miss "8 - ..."), add the
+    // unnumbered Full Festival flyer as the 8th if available
+    if (chosen.length === 7) {
+      const fullFestival = files.find((f) => /full\s*festival\s*flyer/i.test(f));
+      if (fullFestival) {
+        chosen.push(fullFestival);
+      }
+    }
+
+    // Final fallback: if we still don't have 8, keep previous behavior but
+    // deduplicate to avoid explosion and then take the first 8 deterministically
     if (chosen.length !== 8) {
-      chosen = deduplicateFiles(files);
+      chosen = deduplicateFiles(files).slice(0, 8);
     }
 
     const manifest = { files: chosen };
