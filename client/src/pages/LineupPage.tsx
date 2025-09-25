@@ -42,7 +42,7 @@ export default function LineupPage() {
           ? json.files
           : Object.values(json.grouped || {}).flat().map(x => x.file)
         const isImg = (f: string) => /\.(png|jpe?g|webp)$/i.test(f)
-        const list = rawList.filter(isImg)
+        const list = rawList.filter(isImg).filter(f => !f.startsWith("._"))
         setFiles(list)
 
         try {
