@@ -105,6 +105,11 @@ async function fetchArtists(): Promise<any[]> {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Resolve assets root depending on environment
+  const assetsRoot = path.resolve(
+    import.meta.dirname,
+    app.get("env") === "development" ? "../client/public" : "public",
+  );
   // API Routes
   app.get("/api/artists", async (_req, res) => {
     try {
@@ -151,7 +156,121 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Gallery image serving with thumbnail generation
+  // Gallery manifest endpoint
+  app.get('/api/gallery-manifest', async (_req, res) => {
+    try {
+      const manifestPath = path.resolve(assetsRoot, 'assets', 'gallery', 'freakfest', 'manifest.json');
+      
+      // Check if manifest exists
+      try {
+        await fsp.access(manifestPath);
+        const manifestData = await fsp.readFile(manifestPath, 'utf-8');
+        const manifest = JSON.parse(manifestData);
+        res.json(manifest);
+      } catch {
+        // If no manifest, scan directory for images
+        const galleryDir = path.resolve(assetsRoot, 'assets', 'gallery', 'freakfest');
+        
+        try {
+          const files = await fsp.readdir(galleryDir);
+          const images = files
+            .filter(file => /\.(jpg|jpeg|png|webp|avif)$/i.test(file))
+            .filter(file => !file.startsWith('._'))
+            .sort();
+          
+          res.json({ images });
+        } catch {
+          res.json({ images: [] });
+        }
+      }
+    } catch (error) {
+      console.error('Gallery manifest error:', error);
+      res.status(500).json({ message: 'Failed to load gallery manifest' });
+    }
+  });
+
+  // Gallery thumbnail endpoint
+  app.get('/api/gallery-thumb', async (req: Request, res: Response) => {
+    try {
+      const { f: filename, w = '400', q = '85', square = '0', fmt = 'jpeg' } = req.query;
+      
+      // Validate filename
+      if (!filename || typeof filename !== 'string' || !/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$/i.test(filename)) {
+        return res.status(400).json({ message: 'Invalid filename' });
+      }
+      
+      // Validate parameters
+      const width = parseInt(w as string, 10);
+      const quality = parseInt(q as string, 10);
+      const isSquare = square === '1';
+      
+      if (isNaN(width) || width < 50 || width > 2000) {
+        return res.status(400).json({ message: 'Invalid width parameter' });
+      }
+      
+      if (isNaN(quality) || quality < 10 || quality > 100) {
+        return res.status(400).json({ message: 'Invalid quality parameter' });
+      }
+      
+      // Construct file path
+      const imagePath = path.resolve(assetsRoot, 'assets', 'gallery', 'freakfest', filename);
+      
+      // Check if file exists
+      try {
+        await fsp.access(imagePath);
+      } catch {
+        return res.status(404).json({ message: 'Image not found' });
+      }
+      
+      // Generate thumbnail
+      let sharpInstance = sharp(imagePath);
+      
+      if (isSquare) {
+        sharpInstance = sharpInstance.resize(width, width, {
+          fit: 'cover',
+          position: 'center'
+        });
+      } else {
+        sharpInstance = sharpInstance.resize(width, undefined, {
+          fit: 'inside',
+          withoutEnlargement: true
+        });
+      }
+      
+      const outputFormat = fmt === 'auto' ? 'jpeg' : (fmt as string);
+      let buffer: Buffer;
+      let contentType: string;
+      
+      switch (outputFormat) {
+        case 'webp':
+          buffer = await sharpInstance.webp({ quality }).toBuffer();
+          contentType = 'image/webp';
+          break;
+        case 'png':
+          buffer = await sharpInstance.png({ quality: Math.round(quality / 10) }).toBuffer();
+          contentType = 'image/png';
+          break;
+        case 'jpeg':
+        default:
+          buffer = await sharpInstance.jpeg({ quality }).toBuffer();
+          contentType = 'image/jpeg';
+          break;
+      }
+      
+      // Set appropriate headers
+      res.set({
+        'Content-Type': contentType,
+        'Content-Length': buffer.length,
+        'Cache-Control': 'public, max-age=86400' // 24 hours
+      });
+      
+      res.send(buffer);
+    } catch (err: any) {
+      return res.status(500).json({ message: err?.message ?? "Failed to generate thumbnail" });
+    }
+  });
+
+  // Gallery image serving with thumbnail generation (legacy endpoint - keeping for compatibility)
   app.get('/api/gallery/:filename', async (req: Request, res: Response) => {
     try {
       const { filename } = req.params;
@@ -169,14 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Construct file path
-      const imagePath = path.resolve(
-        import.meta.dirname,
-        'public',
-        'assets',
-        'gallery',
-        'freakfest',
-        filename
-      );
+      const imagePath = path.resolve(assetsRoot, 'assets', 'gallery', 'freakfest', filename);
       
       // Check if file exists
       try {
@@ -210,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Image proxy route to handle missing flyer images
   app.get('/assets/flyers/:filename', async (req, res) => {
     const filename = req.params.filename;
-    const filePath = path.resolve(import.meta.dirname, "public", "assets", "flyers", filename);
+    const filePath = path.resolve(assetsRoot, "assets", "flyers", filename);
     
     try {
       // Check if file exists and is accessible

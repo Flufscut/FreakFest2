@@ -38,38 +38,16 @@ export default function LineupPage() {
         const res = await fetch('/assets/flyers/manifest.json', { cache: 'no-cache' })
         if (!res.ok) throw new Error(`Failed to load flyers: ${res.status}`)
         const json: Manifest = await res.json()
-        const rawList = json.files && Array.isArray(json.files) && json.files.length
-          ? json.files
+        // Get files directly from manifest - no complex processing needed
+        const rawList = json.files && Array.isArray(json.files) 
+          ? json.files 
           : Object.values(json.grouped || {}).flat().map(x => x.file)
-        const isImg = (f: string) => /\.(png|jpe?g|webp)$/i.test(f)
-        let list = rawList.filter(isImg).filter(f => !f.startsWith("._"))
         
-        // Client-side deduplication logic
-        const normalizeFileName = (filename: string): string => {
-          const withoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
-          return withoutExt
-            .replace(/(\d{1,2})\s*[-:]\s*(\d{1,2})/g, '$1-$2')
-            .replace(/\s+/g, ' ')
-            .replace(/[-_\s]+/g, '-')
-            .replace(/^(\d+\s*-\s*)?/, '')
-            .trim();
-        }
-        
-        // Deduplicate similar files
-        const seen = new Map<string, string>();
-        for (const file of list) {
-          const normalized = normalizeFileName(file);
-          if (!seen.has(normalized)) {
-            seen.set(normalized, file);
-          } else {
-            // Prefer shorter filename (usually cleaner)
-            const existing = seen.get(normalized)!;
-            if (file.length < existing.length) {
-              seen.set(normalized, file);
-            }
-          }
-        }
-        list = Array.from(seen.values()).sort();
+        // Simple filter: just images, no system files
+        const list = rawList
+          .filter(f => /\.(png|jpe?g|webp)$/i.test(f))
+          .filter(f => !f.startsWith("._"))
+          .filter(f => f !== "manifest.json")
         
         setFiles(list)
 
@@ -112,15 +90,10 @@ export default function LineupPage() {
   }
 
   const sortedFlyers = useMemo(() => {
-    const numbered = files.filter((f) => /^\d+\s*-\s*/.test(decodeURIComponent(f)))
-    const chosen = numbered.length ? numbered : files
-    const withDates = chosen.map((f) => {
-      const iso = (dateMap && dateMap[f]) || extractDateFromFilename(f)
-      return { file: f, iso }
-    })
-    withDates.sort((a, b) => a.file.localeCompare(b.file, undefined, { sensitivity: 'base' }))
-    return withDates
-  }, [files, dateMap])
+    // Simple sort by filename - files are already numbered 1, 2, 3, etc.
+    const sorted = [...files].sort((a, b) => a.localeCompare(b))
+    return sorted.map(file => ({ file, iso: null }))
+  }, [files])
 
   const imageUrl = (file: string) => `/assets/flyers/${encodeURIComponent(file)}`
 
