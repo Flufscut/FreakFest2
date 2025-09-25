@@ -97,12 +97,28 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
       .filter((e) => !e.startsWith("._")) // Filter out macOS resource fork files
       .sort();
     
-    // Deduplicate similar files
-    files = deduplicateFiles(files);
-    
-    const manifest = { files };
+    // Prefer the eight numbered flyers only: "1 - ..." through "8 - ..."
+    const numbered = files.filter((f) => /^\s*[1-8]\s*-\s*/.test(f));
+
+    // If the archive contains more files, keep only the eight we care about
+    // and sort by the leading number
+    let chosen: string[] = numbered
+      .slice()
+      .sort((a, b) => {
+        const na = parseInt(a.match(/^(\s*([1-8]))\s*-/)?.[2] || '99', 10);
+        const nb = parseInt(b.match(/^(\s*([1-8]))\s*-/)?.[2] || '99', 10);
+        return na - nb || a.localeCompare(b);
+      });
+
+    // Fallback: if we didn't find the numbered set (unexpected),
+    // keep previous behavior but deduplicate to avoid explosion
+    if (chosen.length !== 8) {
+      chosen = deduplicateFiles(files);
+    }
+
+    const manifest = { files: chosen };
     await fsp.writeFile(path.join(flyersDir, "manifest.json"), JSON.stringify(manifest, null, 2));
-    log(`wrote flyers manifest.json with ${files.length} files (after deduplication)`, "media");
+    log(`wrote flyers manifest.json with ${manifest.files.length} files`, "media");
   } catch (e: any) {
     log(`flyers manifest generation skipped: ${e?.message ?? e}`, "media");
   }
