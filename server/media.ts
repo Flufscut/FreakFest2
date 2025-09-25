@@ -97,32 +97,50 @@ async function generateFlyersManifest(flyersDir: string): Promise<void> {
       .filter((e) => !e.startsWith("._")) // Filter out macOS resource fork files
       .sort();
     
-    // Prefer the eight numbered flyers only: "1 - ..." through "8 - ..."
-    const numbered = files
-      .filter((f) => /^\s*[1-8]\s*-\s*/.test(f))
-      .slice()
-      .sort((a, b) => {
-        const na = parseInt(a.match(/^(\s*([1-8]))\s*-/)?.[2] || '99', 10);
-        const nb = parseInt(b.match(/^(\s*([1-8]))\s*-/)?.[2] || '99', 10);
-        return na - nb || a.localeCompare(b);
-      });
+    // Strict list of expected flyers in desired order — exactly one of each
+    const preferredOrder = [
+      '1 - 10-16 - Main Stage.png',
+      '2 - 10-17 - Main Stage.png',
+      '3 - 10-17 - Club Stage.png',
+      '4 - 10-17 - Playhouse Stage.png',
+      '5 - 10-18 - Main Stage.png',
+      '6 - 10-18 - Club Stage.png',
+      '7 - 10-19 - Main Stage.png',
+      '8 - Full Festival Flyer.png',
+    ];
 
-    let chosen: string[] = numbered.slice(0, 8);
+    // First pass: pick exact matches only (hyphenated dates, no variants)
+    let chosen: string[] = preferredOrder.filter((name) => files.includes(name));
 
-    // If we have 7 numbered flyers (some archives miss "8 - ..."), add the
-    // unnumbered Full Festival flyer as the 8th if available
-    if (chosen.length === 7) {
-      const fullFestival = files.find((f) => /full\s*festival\s*flyer/i.test(f));
-      if (fullFestival) {
-        chosen.push(fullFestival);
+    // If some files are missing in the archive, try to map obvious variants
+    if (chosen.length < preferredOrder.length) {
+      const variants = new Map<string, RegExp>([
+        ['1 - 10-16 - Main Stage.png', /^1\s*-\s*10[:\-]16\s*-\s*Main\s*Stage\.png$/i],
+        ['2 - 10-17 - Main Stage.png', /^2\s*-\s*10[:\-]17\s*-\s*Main\s*Stage\.png$/i],
+        ['3 - 10-17 - Club Stage.png', /^3\s*-\s*10[:\-]17\s*-\s*Club\s*Stage\.png$/i],
+        ['4 - 10-17 - Playhouse Stage.png', /^4\s*-\s*10[:\-]17\s*-\s*Playhouse\s*Stage\.png$/i],
+        ['5 - 10-18 - Main Stage.png', /^5\s*-\s*10[:\-]18\s*-\s*Main\s*Stage\.png$/i],
+        ['6 - 10-18 - Club Stage.png', /^6\s*-\s*10[:\-]18\s*-\s*Club\s*Stage\.png$/i],
+        ['7 - 10-19 - Main Stage.png', /^7\s*-\s*10[:\-]19\s*-\s*Main\s*Stage\.png$/i],
+        ['8 - Full Festival Flyer.png', /^8\s*-\s*Full\s*Festival\s*Flyer\.png$/i],
+      ]);
+
+      const remaining = new Set(preferredOrder.filter((n) => !chosen.includes(n)));
+      for (const file of files) {
+        for (const key of remaining) {
+          const re = variants.get(key)!;
+          if (re.test(file)) {
+            chosen.push(key);
+            remaining.delete(key);
+            break;
+          }
+        }
+        if (remaining.size === 0) break;
       }
     }
 
-    // Final fallback: if we still don't have 8, keep previous behavior but
-    // deduplicate to avoid explosion and then take the first 8 deterministically
-    if (chosen.length !== 8) {
-      chosen = deduplicateFiles(files).slice(0, 8);
-    }
+    // Ensure stable order and no duplicates
+    chosen = preferredOrder.filter((n) => new Set(chosen).has(n));
 
     const manifest = { files: chosen };
     await fsp.writeFile(path.join(flyersDir, "manifest.json"), JSON.stringify(manifest, null, 2));
