@@ -42,7 +42,35 @@ export default function LineupPage() {
           ? json.files
           : Object.values(json.grouped || {}).flat().map(x => x.file)
         const isImg = (f: string) => /\.(png|jpe?g|webp)$/i.test(f)
-        const list = rawList.filter(isImg).filter(f => !f.startsWith("._"))
+        let list = rawList.filter(isImg).filter(f => !f.startsWith("._"))
+        
+        // Client-side deduplication logic
+        const normalizeFileName = (filename: string): string => {
+          const withoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+          return withoutExt
+            .replace(/(\d{1,2})\s*[-:]\s*(\d{1,2})/g, '$1-$2')
+            .replace(/\s+/g, ' ')
+            .replace(/[-_\s]+/g, '-')
+            .replace(/^(\d+\s*-\s*)?/, '')
+            .trim();
+        }
+        
+        // Deduplicate similar files
+        const seen = new Map<string, string>();
+        for (const file of list) {
+          const normalized = normalizeFileName(file);
+          if (!seen.has(normalized)) {
+            seen.set(normalized, file);
+          } else {
+            // Prefer shorter filename (usually cleaner)
+            const existing = seen.get(normalized)!;
+            if (file.length < existing.length) {
+              seen.set(normalized, file);
+            }
+          }
+        }
+        list = Array.from(seen.values()).sort();
+        
         setFiles(list)
 
         try {
