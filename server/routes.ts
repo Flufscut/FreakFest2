@@ -84,12 +84,8 @@ async function fetchArtists(): Promise<any[]> {
   
   try {
     const sheetId = process.env.GOOGLE_SHEET_ID || '1olXuQXZWpPCC87JLfS3P94gvZ5YRh2YoOJuSYa1RaYQ';
-    const sheetName = process.env.GOOGLE_SHEET_SHEETNAME || 'Master Sheet';
-    const sheetGid = process.env.GOOGLE_SHEET_GID;
-    // Prefer explicit gid if provided, else fetch by sheet name via gviz CSV
-    const url = sheetGid
-      ? `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${encodeURIComponent(sheetGid)}`
-      : `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+    const sheetName = 'Website'; // Use the Website sheet with only the columns we need
+    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -108,9 +104,9 @@ async function fetchArtists(): Promise<any[]> {
     };
 
     const artists = records.map(r => {
-      const name = pick(r, ['artist name', 'name', 'artist']);
-      const instagramHandle = pick(r, ['instagram', 'ig', 'handle'], getInstagramHandle(name));
-      const igLink = pick(r, ['ig link', 'iglink', 'instagram link'], '');
+      const name = r['artist name'] || '';
+      const instagramHandle = r['instagram'] || '';
+      const igLink = r['ig link'] || '';
       
       // Use the IG Link if available, otherwise construct from handle
       let instagramUrl = '';
@@ -126,7 +122,6 @@ async function fetchArtists(): Promise<any[]> {
         name,
         instagramHandle,
         instagramUrl,
-        profileImageUrl: getUnavatarUrl(name),
       };
     }).filter(a => a.name);
 
