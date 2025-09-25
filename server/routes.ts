@@ -132,7 +132,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/artists", async (_req, res) => {
     try {
       const artists = await fetchArtists();
-      res.json(artists);
+      // Map to the shape expected by the client
+      const apiArtists = artists.map((a: any) => {
+        const raw = String(a.instagram || "").trim();
+        let handle = raw
+          .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+          .replace(/^@/, "")
+          .replace(/\/$/, "");
+        if (!handle) handle = getInstagramHandle(a.name || "");
+
+        const id = (a.name || handle || "artist")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60);
+
+        return {
+          id,
+          name: a.name || "",
+          instagramHandle: handle,
+          instagramUrl: handle ? `https://instagram.com/${handle}` : "",
+          profileImageUrl: getUnavatarUrl(a.name || handle || "artist"),
+        };
+      });
+
+      res.json({ artists: apiArtists });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch artists" });
     }
