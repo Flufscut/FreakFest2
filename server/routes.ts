@@ -12,41 +12,45 @@ const fsp = fs;
 type CachedArtists = { fetchedAt: number; data: any[] } | null;
 let artistsCache: CachedArtists = null;
 
+function parseCSVLine(line: string): string[] {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  values.push(current.trim());
+  return values;
+}
+
 function parseCsv(text: string): Record<string, string>[] {
   // Normalize BOM and line endings; keep empty cells
   const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
-  const normalizeHeader = (h: string) => stripBom(h).trim().toLowerCase();
+  const normalizeHeader = (h: string) => stripBom(h).trim().replace(/^"(.*)"$/, '$1').toLowerCase(); // Remove quotes
 
   const lines = stripBom(text).split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length < 2) return [];
 
-  const rawHeaders = lines[0].split(',');
+  // Parse headers properly handling quoted values
+  const rawHeaders = parseCSVLine(lines[0]);
   const headers = rawHeaders.map(normalizeHeader);
   const rows = lines.slice(1);
 
   return rows.map(row => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < row.length; i++) {
-      const char = row[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current);
-
+    const values = parseCSVLine(row);
     const record: Record<string, string> = {};
     headers.forEach((header, index) => {
       record[header] = (values[index] ?? '').trim();
     });
-
     return record;
   });
 }
