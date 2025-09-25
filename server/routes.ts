@@ -13,37 +13,40 @@ type CachedArtists = { fetchedAt: number; data: any[] } | null;
 let artistsCache: CachedArtists = null;
 
 function parseCsv(text: string): Record<string, string>[] {
-  const lines = text.trim().split('\n');
+  // Normalize BOM and line endings; keep empty cells
+  const stripBom = (s: string) => s.replace(/^\uFEFF/, '');
+  const normalizeHeader = (h: string) => stripBom(h).trim().toLowerCase();
+
+  const lines = stripBom(text).split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length < 2) return [];
-  
-  const headers = lines[0].split(',').map(h => h.trim());
+
+  const rawHeaders = lines[0].split(',');
+  const headers = rawHeaders.map(normalizeHeader);
   const rows = lines.slice(1);
-  
+
   return rows.map(row => {
-    const values = [];
+    const values: string[] = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < row.length; i++) {
       const char = row[i];
-      
       if (char === '"') {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
+        values.push(current);
         current = '';
       } else {
         current += char;
       }
     }
-    
-    values.push(current.trim());
-    
+    values.push(current);
+
     const record: Record<string, string> = {};
     headers.forEach((header, index) => {
-      record[header] = values[index] || '';
+      record[header] = (values[index] ?? '').trim();
     });
-    
+
     return record;
   });
 }
@@ -78,24 +81,39 @@ async function fetchArtists(): Promise<any[]> {
   try {
     const sheetId = '1BVmOJzZl-wQGVEO9OwJAhX4_gXiWmVfHIZKZZPuWQkE';
     const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
-    
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status}`);
     }
-    
+
     const csvText = await response.text();
     const records = parseCsv(csvText);
-    
-    const artists = records.map(record => ({
-      name: record['Artist Name'] || '',
-      day: record['Day'] || '',
-      stage: record['Stage'] || '',
-      time: record['Time'] || '',
-      instagram: record['Instagram'] || getInstagramHandle(record['Artist Name'] || ''),
-      avatar: getUnavatarUrl(record['Artist Name'] || '')
-    })).filter(artist => artist.name); // Filter out empty names
-    
+
+    const pick = (r: Record<string, string>, keys: string[], fallback = '') => {
+      for (const k of keys) {
+        const v = r[k.toLowerCase()] ?? r[k];
+        if (v && v.trim()) return v.trim();
+      }
+      return fallback;
+    };
+
+    const artists = records.map(r => {
+      const name = pick(r, ['artist name', 'name', 'artist']);
+      const day = pick(r, ['day', 'date']);
+      const stage = pick(r, ['stage']);
+      const time = pick(r, ['time']);
+      const instagram = pick(r, ['instagram', 'ig', 'handle'], getInstagramHandle(name));
+      return {
+        name,
+        day,
+        stage,
+        time,
+        instagram,
+        avatar: getUnavatarUrl(name),
+      };
+    }).filter(a => a.name);
+
     artistsCache = { fetchedAt: now, data: artists };
     return artists;
   } catch (error) {
