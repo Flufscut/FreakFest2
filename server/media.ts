@@ -53,16 +53,56 @@ async function generateGalleryManifest(galleryDir: string): Promise<void> {
   }
 }
 
+function normalizeFileName(filename: string): string {
+  // Remove file extension and convert to lowercase
+  const withoutExt = filename.replace(/\.[^.]+$/, '').toLowerCase();
+  
+  // Normalize date formats and punctuation
+  return withoutExt
+    // Convert various date formats to consistent format
+    .replace(/(\d{1,2})\s*[-:]\s*(\d{1,2})/g, '$1-$2')
+    // Remove extra spaces and normalize separators
+    .replace(/\s+/g, ' ')
+    .replace(/[-_\s]+/g, '-')
+    // Remove common prefixes/suffixes that might vary
+    .replace(/^(\d+\s*-\s*)?/, '')
+    .trim();
+}
+
+function deduplicateFiles(files: string[]): string[] {
+  const seen = new Map<string, string>();
+  
+  for (const file of files) {
+    const normalized = normalizeFileName(file);
+    
+    if (!seen.has(normalized)) {
+      seen.set(normalized, file);
+    } else {
+      // If we have a duplicate, prefer the shorter filename (usually cleaner)
+      const existing = seen.get(normalized)!;
+      if (file.length < existing.length) {
+        seen.set(normalized, file);
+      }
+    }
+  }
+  
+  return Array.from(seen.values()).sort();
+}
+
 async function generateFlyersManifest(flyersDir: string): Promise<void> {
   try {
     const entries = await fsp.readdir(flyersDir);
-    const files = entries
+    let files = entries
       .filter((e) => /\.(jpe?g|png|webp|avif)$/i.test(e))
       .filter((e) => !e.startsWith("._")) // Filter out macOS resource fork files
       .sort();
+    
+    // Deduplicate similar files
+    files = deduplicateFiles(files);
+    
     const manifest = { files };
     await fsp.writeFile(path.join(flyersDir, "manifest.json"), JSON.stringify(manifest, null, 2));
-    log(`wrote flyers manifest.json with ${files.length} files`, "media");
+    log(`wrote flyers manifest.json with ${files.length} files (after deduplication)`, "media");
   } catch (e: any) {
     log(`flyers manifest generation skipped: ${e?.message ?? e}`, "media");
   }
