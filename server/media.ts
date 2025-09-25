@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
-import tar from "tar";
+import * as tar from "tar";
 import { log } from "./vite";
 
 async function dirHasFiles(dir: string): Promise<boolean> {
