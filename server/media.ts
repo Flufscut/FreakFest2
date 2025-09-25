@@ -5,10 +5,27 @@ import { pipeline } from "node:stream/promises";
 import * as tar from "tar";
 import { log } from "./vite";
 
-async function dirHasFiles(dir: string): Promise<boolean> {
+async function dirHasRealFiles(dir: string): Promise<boolean> {
   try {
     const entries = await fsp.readdir(dir);
-    return entries.length > 0;
+    if (entries.length === 0) return false;
+    
+    // Check if any file is a Git LFS pointer
+    for (const entry of entries.slice(0, 3)) { // Check first 3 files
+      const filePath = path.join(dir, entry);
+      try {
+        const stats = await fsp.stat(filePath);
+        if (stats.isFile() && stats.size < 200) { // LFS pointers are usually < 200 bytes
+          const content = await fsp.readFile(filePath, 'utf-8');
+          if (content.includes('git-lfs.github.com')) {
+            log(`detected LFS pointer in ${dir}, will re-download`, "media");
+            return false;
+          }
+        }
+      } catch {}
+    }
+    
+    return true;
   } catch {
     return false;
   }
@@ -21,17 +38,21 @@ async function downloadAndExtract(url: string, destDir: string): Promise<void> {
   await pipeline(res.body as any, tar.x({ C: destDir }));
 }
 
-async function generateGalleryManifest(galleryDir: string): Promise<void> {
+async function generateManifest(dir: string, type: "gallery" | "flyers"): Promise<void> {
   try {
-    const entries = await fsp.readdir(galleryDir);
-    const images = entries
+    const entries = await fsp.readdir(dir);
+    const files = entries
       .filter((e) => /\.(jpe?g|png|webp|avif)$/i.test(e))
       .sort();
-    const manifest = { images };
-    await fsp.writeFile(path.join(galleryDir, "manifest.json"), JSON.stringify(manifest, null, 2));
-    log(`wrote manifest.json with ${images.length} images`, "media");
+    
+    const manifest = type === "gallery" 
+      ? { images: files }
+      : { files: files };
+    
+    await fsp.writeFile(path.join(dir, "manifest.json"), JSON.stringify(manifest, null, 2));
+    log(`wrote ${type} manifest.json with ${files.length} files`, "media");
   } catch (e: any) {
-    log(`manifest generation skipped: ${e?.message ?? e}`, "media");
+    log(`${type} manifest generation skipped: ${e?.message ?? e}`, "media");
   }
 }
 
@@ -46,7 +67,7 @@ export async function ensureMediaAssets(): Promise<void> {
   ];
 
   for (const t of targets) {
-    const has = await dirHasFiles(t.dir);
+    const has = await dirHasRealFiles(t.dir);
     if (!has) {
       try {
         log(`downloading ${t.file}...`, "media");
@@ -58,5 +79,6 @@ export async function ensureMediaAssets(): Promise<void> {
     }
   }
 
-  await generateGalleryManifest(path.join(assetsRoot, "gallery", "freakfest"));
+  await generateManifest(path.join(assetsRoot, "gallery", "freakfest"), "gallery");
+  await generateManifest(path.join(assetsRoot, "flyers"), "flyers");
 }
