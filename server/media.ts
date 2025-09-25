@@ -28,11 +28,18 @@ async function downloadAndExtract(url: string, destDir: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status}`);
   
-  // Extract with strip option to remove the first directory component
-  // This handles archives that have a single top-level directory
+  // Determine strip level based on the archive type
+  let stripLevel = 1; // Default for most archives
+  
+  // Gallery archive has nested structure: gallery/freakfest/files
+  // We need to strip 2 levels to get files directly in the target directory
+  if (url.includes('gallery-freakfest.tar.gz')) {
+    stripLevel = 2;
+  }
+  
   await pipeline(res.body as any, tar.x({ 
     C: destDir,
-    strip: 1  // Remove the first directory component (e.g., "flyers/")
+    strip: stripLevel
   }));
   
   log(`files extracted to ${destDir}`, "media");
